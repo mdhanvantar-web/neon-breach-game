@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-label="Neon Breach 3D Arena Shooter">
+  <defs>
+    <linearGradient id="n1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7dfcff"/>
+      <stop offset="1" stop-color="#28e0ff"/>
+    </linearGradient>
+    <linearGradient id="n2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5cf0"/>
+      <stop offset="1" stop-color="#b44bff"/>
+    </linearGradient>
+    <radialGradient id="core" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#9ffcff"/>
+      <stop offset="1" stop-color="#0aa6c4"/>
+    </radialGradient>
+    <filter id="g" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sg" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="400" fill="#04070e"/>
+  <path d="M0 400L1200 120" stroke="#28e0ff" stroke-opacity="0.08" stroke-width="70" fill="none"/>
+  <path d="M0 300L1200 20" stroke="#ff5cf0" stroke-opacity="0.07" stroke-width="50" fill="none"/>
+
+  <g transform="translate(200 200)">
+    <g filter="url(#sg)">
+      <circle r="150" fill="none" stroke="#ff5cf0" stroke-opacity="0.4" stroke-width="2.5" stroke-dasharray="14 18"/>
+      <circle r="118" fill="none" stroke="#7dfcff" stroke-opacity="0.2" stroke-width="1.5"/>
+    </g>
+    <g filter="url(#g)">
+      <path d="M0-118v34M0 84v34M-118 0h34M84 0h34" stroke="url(#n1)" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <g filter="url(#g)">
+      <path d="M0-70l55 27v63L0 47l-55-27v-63z" fill="#07141f" fill-opacity="0.75" stroke="url(#n1)" stroke-width="6.5" stroke-linejoin="round"/>
+      <ellipse rx="43" ry="25" fill="none" stroke="#ff5cf0" stroke-opacity="0.85" stroke-width="4.5"/>
+      <ellipse rx="25" ry="14" fill="url(#core)"/>
+    </g>
+  </g>
+
+  <g transform="translate(400 0)">
+    <text x="0" y="188" font-family="Segoe UI, Arial Black, sans-serif" font-size="104" font-weight="800" letter-spacing="10" fill="url(#n1)" filter="url(#g)">NEON</text>
+    <text x="0" y="286" font-family="Segoe UI, Arial Black, sans-serif" font-size="104" font-weight="800" letter-spacing="10" fill="url(#n2)" filter="url(#g)">BREACH</text>
+    <rect x="4" y="312" width="470" height="5" fill="url(#n1)" filter="url(#sg)"/>
+    <text x="4" y="352" font-family="Consolas, monospace" font-size="25" letter-spacing="13" fill="#6fb6d4">3D ARENA SHOOTER</text>
+  </g>
+</svg>

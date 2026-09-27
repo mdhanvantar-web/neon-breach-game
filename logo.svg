@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Neon Breach logo">
+  <defs>
+    <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7dfcff"/>
+      <stop offset="0.55" stop-color="#28e0ff"/>
+      <stop offset="1" stop-color="#ff5cf0"/>
+    </linearGradient>
+    <linearGradient id="neonRev" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff5cf0"/>
+      <stop offset="1" stop-color="#7dfcff"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#12283c"/>
+      <stop offset="0.55" stop-color="#08121e"/>
+      <stop offset="1" stop-color="#03060c"/>
+    </radialGradient>
+    <radialGradient id="core" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#9ffcff"/>
+      <stop offset="1" stop-color="#0aa6c4"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#5ad4ff" stroke-opacity="0.13" stroke-width="1"/>
+    </pattern>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="104" fill="url(#grid)"/>
+  <rect x="10" y="10" width="492" height="492" rx="96" fill="none" stroke="url(#neon)" stroke-opacity="0.5" stroke-width="2.5"/>
+
+  <g filter="url(#softGlow)">
+    <circle cx="256" cy="256" r="176" fill="none" stroke="url(#neonRev)" stroke-opacity="0.42" stroke-width="2.5" stroke-dasharray="16 20"/>
+    <circle cx="256" cy="256" r="140" fill="none" stroke="#7dfcff" stroke-opacity="0.2" stroke-width="1.5"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <path d="M256 44v46M256 422v46M44 256h46M422 256h46" stroke="url(#neon)" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g fill="#7dfcff" filter="url(#softGlow)">
+    <path d="M256 108l9 20h-18z"/>
+    <path d="M256 404l9-20h-18z"/>
+    <path d="M108 256l20-9v18z"/>
+    <path d="M404 256l-20 9v-18z"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <path d="M256 150l66 32v76l-66 32-66-32v-76z" fill="#07141f" fill-opacity="0.72" stroke="url(#neon)" stroke-width="7" stroke-linejoin="round"/>
+    <ellipse cx="256" cy="238" rx="52" ry="30" fill="none" stroke="#ff5cf0" stroke-opacity="0.85" stroke-width="5"/>
+    <ellipse cx="256" cy="238" rx="30" ry="17" fill="url(#core)"/>
+    <ellipse cx="247" cy="233" rx="9" ry="5" fill="#ffffff" fill-opacity="0.9"/>
+  </g>
+
+  <g fill="url(#neon)" filter="url(#softGlow)">
+    <rect x="238" y="288" width="36" height="12" rx="6"/>
+    <path d="M170 206l-40 16v22l40-14z"/>
+    <path d="M342 206l40 16v22l-40-14z"/>
+  </g>
+  <g fill="#ff5cf0" filter="url(#softGlow)">
+    <rect x="196" y="222" width="22" height="7" rx="3.5"/>
+    <rect x="294" y="222" width="22" height="7" rx="3.5"/>
+  </g>
+
+  <g stroke="url(#neon)" stroke-width="4" stroke-linecap="round" filter="url(#softGlow)" opacity="0.9">
+    <path d="M150 150l-22-22M362 150l22-22M150 362l-22 22M362 362l22 22"/>
+  </g>
+</svg>

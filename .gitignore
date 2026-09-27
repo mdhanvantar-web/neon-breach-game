@@ -1,0 +1,15 @@
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Node (only used for local verification tooling, not required to play)
+node_modules/
+package.json
+package-lock.json
+
+# local screenshots
+*.tmp.png
