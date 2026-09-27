@@ -13,7 +13,13 @@ the pulse carbine; aim for the glowing core for critical hits.
 Open `index.html` in a modern desktop browser (Chrome, Edge, Firefox, Safari).
 Everything runs locally, including the 3D engine — it plays offline.
 
-For a hosted copy, see the live demo link in the repository description.
+### Live
+
+| Host | URL |
+| --- | --- |
+| Vercel | https://neon-breach-game-three.vercel.app |
+| GitHub Pages | https://mdhanvantar-web.github.io/neon-breach-game/ |
+| Source | https://github.com/mdhanvantar-web/neon-breach-game |
 
 ## Controls
 
