@@ -68,6 +68,20 @@
   #banner .big { font-size:46px; font-weight:800; letter-spacing:6px; text-shadow:0 0 24px #21e6ff; }
   #banner .sub { font-size:14px; letter-spacing:5px; color:#9fd8ef; }
 
+  #bossWrap { position:absolute; left:50%; top:82px; transform:translateX(-50%); width:min(520px,62vw);
+              text-align:center; display:none; }
+  #bossWrap .lbl { font-size:10px; letter-spacing:5px; color:#ff6a7a; }
+  #bossBar { height:8px; margin-top:5px; border:1px solid rgba(255,90,110,.5); border-radius:5px;
+             background:rgba(255,255,255,.07); overflow:hidden; }
+  #bossFill { height:100%; width:100%; background:linear-gradient(90deg,#ff2d55,#ff9a4d);
+              box-shadow:0 0 14px #ff2d55; transition:width .15s linear; }
+  #bossShield { height:3px; margin-top:3px; border-radius:3px; background:rgba(255,255,255,.07); overflow:hidden; }
+  #bossShieldFill { height:100%; width:100%; background:linear-gradient(90deg,#7dfcff,#4d8bff); }
+  #modTag { position:absolute; left:50%; top:118px; transform:translateX(-50%); font-size:11px; letter-spacing:3px;
+            color:#ffd166; text-shadow:0 0 10px rgba(0,0,0,.9); white-space:nowrap; }
+  #padBadge { position:absolute; left:50%; bottom:22px; transform:translateX(-50%); font-size:10px;
+              letter-spacing:2px; color:#4dffb0; opacity:0; transition:opacity .3s; }
+
   #overlay { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
              background:radial-gradient(ellipse at 50% 40%, #0b1b2a 0%, #04060c 70%); }
   #card { width:min(760px,92vw); padding:34px 40px; border:1px solid rgba(90,220,255,.3); border-radius:16px;
@@ -152,6 +166,13 @@
     <div class="bar"><div id="ammoFill"></div></div>
   </div>
   <div id="feed"></div>
+  <div id="modTag"></div>
+  <div id="bossWrap">
+    <div class="lbl" id="bossName">APEX SENTINEL</div>
+    <div id="bossBar"><div id="bossFill"></div></div>
+    <div id="bossShield"><div id="bossShieldFill"></div></div>
+  </div>
+  <div id="padBadge">GAMEPAD CONNECTED</div>
   <div id="banner"><div class="big" id="bBig"></div><div class="sub" id="bSub"></div></div>
 </div>
 
@@ -216,6 +237,7 @@ function __nbGame() {
   var boomLights = [];
   var enemies = [], bullets = [], tracers = [], sparks = [], pickups = [];
   var wave = 0, score = 0, best = 0;
+  var waveMods = [], boss = null, isBossWave = false;
   try { best = parseInt(localStorage.getItem("neonBest") || "0", 10) || 0; } catch (err) { best = 0; }
   function saveBest() { try { localStorage.setItem("neonBest", String(best)); } catch (err) {} }
   var hp = 100, maxHp = 100, ammo = 30, magSize = 30, reserve = 150, maxReserve = 300;
@@ -268,7 +290,9 @@ function __nbGame() {
     score: el("score"), wave: el("wave"), left: el("left2"), feed: el("feed"),
     vig: el("dmgVig"), heal: el("healVig"), banner: el("banner"),
     bBig: el("bBig"), bSub: el("bSub"), hit: el("hitmark"),
-    reloadWrap: el("reloadWrap"), reloadFill: el("reloadFill")
+    reloadWrap: el("reloadWrap"), reloadFill: el("reloadFill"),
+    bossWrap: el("bossWrap"), bossFill: el("bossFill"), bossShieldFill: el("bossShieldFill"),
+    bossName: el("bossName"), modTag: el("modTag"), padBadge: el("padBadge")
   };
 
   function init() {
@@ -327,7 +351,7 @@ function __nbGame() {
     sens.addEventListener("input", function () { settings.sens = +sens.value; changed(); });
     fov.addEventListener("input", function () { settings.fov = +fov.value; changed(); });
     vol.addEventListener("input", function () { settings.vol = +vol.value; applyVolume(); changed(); });
-    mus.addEventListener("change", function () { settings.music = mus.checked ? 1 : 0; changed(); });
+    mus.addEventListener("change", function () { settings.music = mus.checked ? 1 : 0; changed(); musicSync(); });
     shk.addEventListener("change", function () { settings.shake = shk.checked ? 1 : 0; changed(); });
     qual.addEventListener("change", function () {
       settings.quality = qual.value;
@@ -345,8 +369,10 @@ function __nbGame() {
   }
 
   function buildLights() {
-    scene.add(new THREE.HemisphereLight(0x4a7fb8, 0x0b1220, 0.75));
-    scene.add(new THREE.AmbientLight(0x2a3d55, 0.45));
+    arena.hemi = new THREE.HemisphereLight(0x4a7fb8, 0x0b1220, 0.75);
+    scene.add(arena.hemi);
+    arena.amb = new THREE.AmbientLight(0x2a3d55, 0.45);
+    scene.add(arena.amb);
     var sun = new THREE.DirectionalLight(0xcfe9ff, 0.9);
     sun.position.set(40, 70, 25);
     sun.castShadow = true;
@@ -356,12 +382,14 @@ function __nbGame() {
     sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
     sun.shadow.camera.updateProjectionMatrix();
     scene.add(sun);
+    arena.sun = sun;
     var fill = new THREE.PointLight(0xff5cf0, 0.9, 95);
     fill.position.set(-38, 16, -30);
     scene.add(fill);
     var fill2 = new THREE.PointLight(0x28e0ff, 0.9, 95);
     fill2.position.set(36, 14, 34);
     scene.add(fill2);
+    arena.fills = [fill, fill2];
   }
 
   function buildBoomLights() {
@@ -657,12 +685,14 @@ function __nbGame() {
       updateHUD();
       nextWave(1.2);
     }
+    musicSync();
     if (document.pointerLockElement !== renderer.domElement) lock();
   }
 
   function showPause() {
     if (gameOver || !inProgress) return;
     running = false;
+    musicDuck(true);
     el("body").style.display = "none";
     el("stats").style.display = "none";
     el("overlay").style.display = "flex";
@@ -673,6 +703,7 @@ function __nbGame() {
 
   function endGame() {
     running = false; gameOver = true; inProgress = false;
+    musicSync();
     if (document.pointerLockElement) document.exitPointerLock();
     if (score > best) { best = score; saveBest(); }
     el("body").style.display = "none";
@@ -693,13 +724,69 @@ function __nbGame() {
     sparks.forEach(function (s) { scene.remove(s.mesh); });
     pickups.forEach(function (p) { scene.remove(p.mesh); });
     enemies.length = bullets.length = tracers.length = sparks.length = pickups.length = 0;
+    boss = null; waveMods = []; isBossWave = false;
+    showBossBar(false);
+    ui.modTag.textContent = "";
+  }
+
+  var MODS = [
+    { id: "SWIFT", sub: "HOSTILE VELOCITY UP" },
+    { id: "IRONCLAD", sub: "HOSTILE ARMOUR +50%" },
+    { id: "SWARM", sub: "MORE HOSTILES, LESS HEALTH" },
+    { id: "VOLLEY", sub: "HOSTILES FIRING FASTER" },
+    { id: "SCARCE", sub: "SUPPLIES CUT" },
+    { id: "VOIDLIT", sub: "ARENA BLACKOUT" }
+  ];
+
+  function applyArenaMod() {
+    var dark = modOn("VOIDLIT");
+    if (arena.hemi) arena.hemi.intensity = dark ? 0.26 : 0.75;
+    if (arena.amb) arena.amb.intensity = dark ? 0.15 : 0.45;
+    if (arena.sun) arena.sun.intensity = dark ? 0.32 : 0.9;
+    if (arena.fills) {
+      arena.fills[0].intensity = dark ? 0.28 : 0.9;
+      arena.fills[1].intensity = dark ? 0.28 : 0.9;
+    }
+    scene.fog.near = dark ? 16 : 40;
+    scene.fog.far = dark ? 68 : 135;
   }
 
   function nextWave(delay) {
     if (!running) return;
-    banner("WAVE " + wave, "INCOMING HOSTILES");
+    isBossWave = wave % 5 === 0;
+    waveMods = [];
+    if (!isBossWave && wave > 1) {
+      var n = wave >= 6 && Math.random() < 0.35 ? 2 : 1, guard = 0;
+      while (waveMods.length < n && guard++ < 12) {
+        var m = MODS[Math.floor(Math.random() * MODS.length)];
+        if (waveMods.indexOf(m.id) < 0) waveMods.push(m.id);
+      }
+    }
+    applyArenaMod();
+    ui.modTag.textContent = waveMods.join("  ·  ");
+
+    if (isBossWave) {
+      banner("WAVE " + wave, "APEX SENTINEL INBOUND");
+      tone(90, 0.7, "sawtooth", 0.16);
+      pending += 1;
+      (function (d) {
+        setTimeout(function () { pending--; if (running) buildEnemy("boss", 0, 1); }, d * 1000);
+      })(delay);
+      var escorts = Math.min(2 + Math.floor(wave / 3), 5);
+      pending += escorts;
+      for (var b = 0; b < escorts; b++) {
+        (function (idx, d) {
+          setTimeout(function () { pending--; if (running) spawnEnemy(idx, escorts); }, d);
+        })(b, delay * 1000 + 800 + b * 600);
+      }
+      return;
+    }
+
+    var sub = waveMods.length ? waveMods.join("  ·  ") : "INCOMING HOSTILES";
+    banner("WAVE " + wave, sub);
     tone(180, 0.3, "square", 0.12);
     var count = Math.min(2 + wave * 2, 22);
+    if (modOn("SWARM")) count = Math.round(count * 1.5);
     var gap = Math.max(0.3, 0.95 - wave * 0.05);
     pending += count;
     for (var i = 0; i < count; i++) {
@@ -715,10 +802,9 @@ function __nbGame() {
   function startNextWave() {
     if (!running || pending > 0) return;
     wave++;
-    if (wave % 3 === 0) {
+    if (wave % 3 === 0 && !modOn("SCARCE")) {
       spawnPickup("health");
       spawnPickup("ammo");
-      banner("WAVE " + wave, "SUPPLY DROP INBOUND");
     }
     nextWave(1.4);
   }
@@ -732,61 +818,176 @@ function __nbGame() {
     }, 1500);
   }
 
+  var TYPES = {
+    drone: { hp: 90, speed: 3.5, dmg: 6.4, range: 13, scale: 1, fire: 1.15, score: 100, acc: 0.09 },
+    brute: { hp: 220, speed: 2.4, dmg: 14, range: 17, scale: 1.55, fire: 1.7, score: 180, acc: 0.075 },
+    dart: { hp: 55, speed: 6.1, dmg: 5.5, range: 8, scale: 0.78, fire: 1.5, score: 130, acc: 0.12 },
+    sentinel: { hp: 150, speed: 2.0, dmg: 12, range: 15, scale: 1.2, fire: 1.25, score: 220, acc: 0.08 },
+    boss: { hp: 900, speed: 1.9, dmg: 15, range: 14, scale: 3, fire: 1.6, score: 2500, acc: 0.05 }
+  };
+
+  function modOn(id) { return waveMods.indexOf(id) >= 0; }
+
+  function pickType() {
+    var table = [
+      ["drone", 46],
+      ["brute", wave >= 2 ? 12 + Math.min(wave * 3, 26) : 0],
+      ["dart", wave >= 3 ? 13 + Math.min(wave, 10) : 0],
+      ["sentinel", wave >= 4 ? 9 + Math.min(wave, 9) : 0]
+    ];
+    var tot = 0, i;
+    for (i = 0; i < table.length; i++) tot += table[i][1];
+    var r = Math.random() * tot;
+    for (i = 0; i < table.length; i++) { r -= table[i][1]; if (r <= 0) return table[i][0]; }
+    return "drone";
+  }
+
   function spawnEnemy(idx, total) {
+    buildEnemy(pickType(), idx, total);
+  }
+
+  function buildEnemy(type, idx, total) {
+    var T = TYPES[type];
     var a = (idx / total) * PI * 2 + Math.random();
     var r = 30 + Math.random() * 6;
     var x = Math.cos(a) * r, z = Math.sin(a) * r;
-    var brute = wave >= 2 && Math.random() < Math.min(0.12 + wave * 0.03, 0.4);
-    var scale = brute ? 1.55 : 1;
+    var scale = T.scale;
+    var brute = type === "brute";
     var grp = new THREE.Group();
 
+    var shellCol = { drone: 0x2b3a50, brute: 0x7a2a3a, dart: 0x1f4a3a, sentinel: 0x4a3a6a, boss: 0x6a1a2a }[type];
+    var shellEm = { drone: 0x061420, brute: 0x2a0208, dart: 0x032018, sentinel: 0x16062a, boss: 0x2a0410 }[type];
+    var coreCol = { drone: 0x2ff0ff, brute: 0xff4d3d, dart: 0x7dff9b, sentinel: 0xff9ad1, boss: 0xffd166 }[type];
+
     var shell = new THREE.MeshPhongMaterial({
-      color: brute ? 0x7a2a3a : 0x2b3a50, shininess: 110, specular: 0xbfe4ff,
-      emissive: brute ? 0x2a0208 : 0x061420
+      color: shellCol, shininess: 110, specular: 0xbfe4ff, emissive: shellEm
     });
-    var coreMat = new THREE.MeshBasicMaterial({ color: brute ? 0xff4d3d : 0x2ff0ff });
+    var coreMat = new THREE.MeshBasicMaterial({ color: coreCol });
     var trimMat = new THREE.MeshPhongMaterial({
-      color: 0x0e141d, shininess: 60, specular: 0x88aacc,
-      emissive: brute ? 0x3d0808 : 0x07283a
+      color: 0x0e141d, shininess: 60, specular: 0x88aacc, emissive: shellEm
     });
 
-    var body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62 * scale, 0), shell);
-    body.castShadow = true; grp.add(body);
+    var body, cores = [], shields = null, ringM;
 
-    var core = new THREE.Mesh(new THREE.SphereGeometry(0.3 * scale, 14, 12), coreMat);
-    core.position.set(0, 0.12 * scale, 0.5 * scale); grp.add(core);
+    if (type === "dart") {
+      body = new THREE.Mesh(new THREE.OctahedronGeometry(0.5 * scale, 0), shell);
+      body.scale.set(0.8, 0.62, 1.9);
+      grp.add(body);
+      var finGeo = new THREE.BoxGeometry(0.06, 0.34, 0.5);
+      [-1, 1].forEach(function (s) {
+        var fin = new THREE.Mesh(finGeo, trimMat);
+        fin.position.set(0.42 * s, -0.02, -0.4);
+        fin.rotation.z = 0.5 * s; fin.rotation.y = -0.35;
+        grp.add(fin);
+      });
+    } else if (type === "boss") {
+      body = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 0), shell);
+      grp.add(body);
+      for (var c = 0; c < 3; c++) {
+        var ang = c / 3 * PI * 2;
+        var cm = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 14), coreMat);
+        cm.position.set(Math.cos(ang) * 1.15, 0.25, Math.sin(ang) * 1.15);
+        grp.add(cm); cores.push(cm);
+      }
+      var shellSphere = new THREE.Mesh(new THREE.SphereGeometry(2.35, 24, 20),
+        new THREE.MeshBasicMaterial({
+          color: 0x7dfcff, transparent: true, opacity: 0.16,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+        }));
+      grp.add(shellSphere);
+      shields = { mesh: shellSphere, hp: 320, max: 320, sphere: true };
+    } else {
+      body = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62 * scale, 0), shell);
+      grp.add(body);
+    }
+    body.castShadow = true;
 
-    var ringM = new THREE.Mesh(
-      new THREE.TorusGeometry(0.72 * scale, 0.09 * scale, 6, 20), trimMat);
+    if (type !== "boss") {
+      var core = new THREE.Mesh(new THREE.SphereGeometry(0.3 * scale, 14, 12), coreMat);
+      core.position.set(0, 0.12 * scale, 0.5 * scale);
+      grp.add(core); cores.push(core);
+    }
+
+    ringM = new THREE.Mesh(new THREE.TorusGeometry(0.72 * scale, 0.09 * scale, 6, 20), trimMat);
+    if (type === "dart") {
+      ringM.geometry = new THREE.TorusGeometry(0.5 * scale, 0.05 * scale, 5, 16);
+    }
     ringM.rotation.x = PI / 2; grp.add(ringM);
 
-    var barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * scale, 0.14 * scale, 0.7 * scale, 8), trimMat);
-    barrel.rotation.x = PI / 2; barrel.position.set(0.22 * scale, -0.18 * scale, 0.55 * scale);
-    grp.add(barrel);
+    if (type === "sentinel") {
+      var plate = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.16, 6), trimMat);
+      plate.rotation.x = PI / 2; plate.position.set(0, 0.05, 1.05);
+      grp.add(plate);
+      var rim = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.07, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0x9fd8ff }));
+      rim.position.set(0, 0.05, 1.05);
+      grp.add(rim);
+      shields = { mesh: plate, rim: rim, hp: 130, max: 130 };
+    }
 
-    var mz = new THREE.Object3D(); mz.position.set(0.22 * scale, -0.18 * scale, 0.92 * scale);
-    grp.add(mz);
+    var barrel, mz, flash;
+    if (type === "boss") {
+      [-1, 1].forEach(function (s) {
+        var b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.22, 1.3, 8), trimMat);
+        b2.rotation.x = PI / 2; b2.position.set(0.85 * s, -0.5, 1.35);
+        grp.add(b2);
+      });
+      mz = new THREE.Object3D(); mz.position.set(0, -0.5, 2);
+      grp.add(mz);
+    } else {
+      barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * scale, 0.14 * scale, 0.7 * scale, 8), trimMat);
+      barrel.rotation.x = PI / 2; barrel.position.set(0.22 * scale, -0.18 * scale, 0.55 * scale);
+      grp.add(barrel);
+      mz = new THREE.Object3D();
+      mz.position.set(0.22 * scale, -0.18 * scale, 0.92 * scale);
+      grp.add(mz);
+    }
 
-    var flash = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: flashTex, color: brute ? 0xffa070 : 0xffb0c0, transparent: true, opacity: 0,
+    flash = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: flashTex, color: brute || type === "boss" ? 0xffa070 : 0xffb0c0, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false
     }));
-    flash.scale.set(1.1, 1.1, 1.1);
+    flash.scale.setScalar(1.1 * scale);
     mz.add(flash);
 
     grp.position.set(x, 2.2 + Math.random(), z);
     grp.lookAt(0, grp.position.y, 0);
     scene.add(grp);
 
-    enemies.push({
-      grp: grp, body: body, core: core, ring: ringM, mz: mz, flash: flash, flashT: 0,
-      hp: brute ? 220 : 90, max: brute ? 220 : 90, brute: brute, scale: scale,
-      speed: (brute ? 2.4 : 3.5) + wave * 0.08,
-      fire: 1.4 + Math.random() * 1.6, dmg: brute ? 15 : 6 + Math.min(wave, 10) * 0.8,
-      range: brute ? 17 : 13, strafe: Math.random() > 0.5 ? 1 : -1, strafeT: 0,
+    var hpMul = 1, spdMul = 1, rateMul = 1, accMul = 1;
+    if (modOn("IRONCLAD")) hpMul *= 1.5;
+    if (modOn("SWARM")) hpMul *= 0.7;
+    if (modOn("SWIFT")) spdMul *= 1.4;
+    if (modOn("VOLLEY")) { rateMul *= 0.68; accMul *= 0.6; }
+    var hp = Math.round(T.hp * hpMul);
+
+    var e = {
+      grp: grp, body: body, core: cores[0], cores: cores, ring: ringM, mz: mz, flash: flash, flashT: 0,
+      shield: shields, type: type, scale: scale, hp: hp, max: hp,
+      speed: T.speed * spdMul + wave * 0.08,
+      fire: 1.4 + Math.random() * 1.6,
+      dmg: T.dmg * (1 + Math.min(wave, 12) * 0.07),
+      range: T.range, acc: T.acc * accMul, fireRate: T.fire * rateMul,
+      score: T.score, brute: brute || type === "boss",
+      strafe: Math.random() > 0.5 ? 1 : -1, strafeT: 0, burst: 0, burstT: 0,
       ph: Math.random() * 6, hitFlash: 0, dead: false
-    });
+    };
+    enemies.push(e);
+    if (type === "boss") { boss = e; showBossBar(true); }
     updateHUD();
+    return e;
+  }
+
+  function showBossBar(on) { ui.bossWrap.style.display = on ? "block" : "none"; }
+
+  function dropShield(e) {
+    if (!e.shield) return;
+    e.shield.hp = 0;
+    e.shield.mesh.visible = false;
+    if (e.shield.rim) e.shield.rim.visible = false;
+    feedMsg(e.type === "boss" ? "APEX SHIELD COLLAPSED" : "SHIELD DOWN");
+    tone(420, 0.14, "square", 0.1);
+    spawnSparks(e.grp.position.clone(), 0x9fd8ff, 12);
   }
 
   function spawnPickup(kind) {
@@ -851,7 +1052,7 @@ function __nbGame() {
         while (node) { if (node === en.grp) { inGroup = true; break; } node = node.parent; }
         if (!inGroup) continue;
         hitEnemy = en;
-        isCore = (f.object === en.core || (f.object.geometry && f.object.geometry.type === "SphereGeometry"));
+        isCore = en.cores.indexOf(f.object) >= 0;
         break;
       }
       if (!hitEnemy) spawnSparks(end, 0x7dfcff, 5);
@@ -859,16 +1060,27 @@ function __nbGame() {
 
     if (hitEnemy) {
       hits++;
-      var dmg = 34 * (isCore ? 2.4 : 1);
-      hitEnemy.hp -= dmg;
-      hitEnemy.hitFlash = 0.12;
-      spawnSparks(end, isCore ? 0xffd166 : 0x2ff0ff, isCore ? 10 : 6);
-      ui.hit.style.opacity = 1;
-      clearTimeout(ui.hit._t);
-      ui.hit._t = setTimeout(function () { ui.hit.style.opacity = 0; }, isCore ? 160 : 90);
-      ui.hit.style.filter = isCore ? "hue-rotate(-30deg) saturate(2)" : "";
-      if (isCore) tone(880, 0.06, "square", 0.08);
-      if (hitEnemy.hp <= 0) killEnemy(hitEnemy, isCore);
+      if (hitEnemy.shield && hitEnemy.shield.hp > 0 && !isCore) {
+        hitEnemy.shield.hp -= 34;
+        spawnSparks(end, 0x9fd8ff, 7);
+        tone(260, 0.05, "square", 0.05);
+        ui.hit.style.opacity = 0.75;
+        clearTimeout(ui.hit._t);
+        ui.hit._t = setTimeout(function () { ui.hit.style.opacity = 0; }, 90);
+        if (hitEnemy.shield.hp <= 0) dropShield(hitEnemy);
+      } else {
+        var dmg = 34 * (isCore ? 2.4 : 1);
+        hitEnemy.hp -= dmg;
+        hitEnemy.hitFlash = 0.12;
+        spawnSparks(end, isCore ? 0xffd166 : 0x2ff0ff, isCore ? 10 : 6);
+        ui.hit.style.opacity = 1;
+        clearTimeout(ui.hit._t);
+        ui.hit._t = setTimeout(function () { ui.hit.style.opacity = 0; }, isCore ? 160 : 90);
+        ui.hit.style.filter = isCore ? "hue-rotate(-30deg) saturate(2)" : "";
+        if (isCore) tone(880, 0.06, "square", 0.08);
+        if (hitEnemy.hp <= 0) killEnemy(hitEnemy, isCore);
+      }
+      if (boss) updateBossBar();
     }
 
     var geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
@@ -884,41 +1096,80 @@ function __nbGame() {
     e.dead = true; kills++;
     streak++; streakT = 3.2;
     var mult = 1 + Math.min(streak - 1, 9) * 0.25;
-    var gain = Math.round((isCore ? 180 : 100) * (e.brute ? 1.8 : 1) * mult);
+    var gain = Math.round(e.score * (isCore ? 1.8 : 1) * mult);
     score += gain;
     feedMsg("+" + gain + "  " + (isCore ? "CORE SHOT" : "HOSTILE DOWN") +
       (streak > 1 ? "  x" + (1 + Math.min(streak - 1, 9) * 0.25).toFixed(2) : ""));
-    explode(e.grp.position.clone(), e.brute ? 0xff7a3d : 0x2ff0ff, e.brute ? 34 : 20);
-    shake = Math.min(1, shake + (e.brute ? 0.34 : 0.13));
+    explode(e.grp.position.clone(), e.type === "boss" ? 0xffd166 : e.brute ? 0xff7a3d : 0x2ff0ff,
+      e.type === "boss" ? 70 : e.brute ? 34 : 20);
+    shake = Math.min(1, shake + (e.type === "boss" ? 1 : e.brute ? 0.34 : 0.13));
     noise(0.34, 0.3, 700);
-    tone(e.brute ? 90 : 150, 0.28, "sawtooth", 0.12);
+    tone(e.type === "boss" ? 70 : e.brute ? 90 : 150, 0.28, "sawtooth", 0.12);
+
+    if (e.type === "boss") {
+      banner("CORE DESTROYED", "APEX SENTINEL ELIMINATED");
+      showBossBar(false);
+      boss = null;
+      var bp = e.grp.position.clone();
+      for (var bi = 0; bi < 5; bi++) {
+        (function (k) {
+          setTimeout(function () {
+            if (running) explode(bp.clone().add(new THREE.Vector3(
+              (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 6)),
+              0xff7a3d, 22);
+          }, 130 * k);
+        })(bi);
+      }
+    }
+
     scene.remove(e.grp);
     var i = enemies.indexOf(e); if (i >= 0) enemies.splice(i, 1);
     updateHUD();
     if (enemies.length === 0 && pending === 0 && running) setTimeout(startNextWave, 1200);
   }
 
-  function enemyShoot(e) {
+  function updateBossBar() {
+    if (!boss) return;
+    ui.bossFill.style.width = Math.max(0, boss.hp / boss.max * 100) + "%";
+    ui.bossShieldFill.style.width = (boss.shield ? Math.max(0, boss.shield.hp / boss.shield.max * 100) : 0) + "%";
+  }
+
+  function enemyShoot(e, spread, count) {
     var from = new THREE.Vector3(); e.mz.getWorldPosition(from);
     var to = new THREE.Vector3(camera.position.x, camera.position.y - 0.12, camera.position.z);
-    var dir = to.sub(from).normalize();
-    var acc = 0.09 + Math.min(wave, 12) * 0.006;
-    dir.x += (Math.random() - 0.5) * acc;
-    dir.y += (Math.random() - 0.5) * acc;
-    dir.z += (Math.random() - 0.5) * acc;
-    dir.normalize();
-    var col = e.brute ? 0xff6a3d : 0xff4d6a;
-    var mesh = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6),
-      new THREE.MeshBasicMaterial({ color: col }));
-    mesh.position.copy(from);
-    var glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: flashTex, color: col, transparent: true, opacity: 0.8,
-      blending: THREE.AdditiveBlending, depthWrite: false
-    }));
-    glow.scale.set(0.85, 0.85, 0.85);
-    mesh.add(glow);
-    scene.add(mesh);
-    bullets.push({ mesh: mesh, vel: dir.multiplyScalar(34), life: 3, dmg: e.dmg });
+    var base = to.sub(from).normalize();
+    var n = count || 1, sp = spread || 0;
+    var speed = e.type === "dart" ? 41 : 34;
+    var side = new THREE.Vector3(-base.z, 0, base.x);
+    var up = new THREE.Vector3().crossVectors(base, side).normalize();
+    var col = e.type === "boss" ? 0xffd166 : e.brute ? 0xff6a3d : e.type === "sentinel" ? 0xc86aff : 0xff4d6a;
+
+    for (var k = 0; k < n; k++) {
+      var dir = base.clone();
+      if (sp) {
+        var ang = n > 1 ? (k / (n - 1) - 0.5) * 2 * sp : (Math.random() - 0.5) * sp;
+        dir.addScaledVector(side, Math.sin(ang));
+        dir.addScaledVector(up, (Math.random() - 0.5) * sp * 0.3);
+        dir.normalize();
+      }
+      var acc = e.acc;
+      dir.x += (Math.random() - 0.5) * acc;
+      dir.y += (Math.random() - 0.5) * acc;
+      dir.z += (Math.random() - 0.5) * acc;
+      dir.normalize();
+
+      var mesh = new THREE.Mesh(new THREE.SphereGeometry(e.type === "boss" ? 0.24 : 0.17, 8, 6),
+        new THREE.MeshBasicMaterial({ color: col }));
+      mesh.position.copy(from);
+      var glow = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: flashTex, color: col, transparent: true, opacity: 0.8,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      }));
+      glow.scale.setScalar(e.type === "boss" ? 1.2 : 0.85);
+      mesh.add(glow);
+      scene.add(mesh);
+      bullets.push({ mesh: mesh, vel: dir.multiplyScalar(speed), life: 3, dmg: e.dmg });
+    }
     e.flashT = 0.09;
   }
 
@@ -1127,6 +1378,11 @@ function __nbGame() {
       if (e.strafeT <= 0) { e.strafeT = 1.2 + Math.random() * 1.8; e.strafe *= -1; }
 
       var ideal = e.range * 0.72;
+      if (e.type === "dart") {
+        e.diveT = (e.diveT || 0) - dt;
+        if (e.diveT <= 0) { e.diveT = 1.7 + Math.random() * 1.7; e.diving = !e.diving; }
+        ideal = e.range * (e.diving ? 0.45 : 1.7);
+      }
       if (dist > ideal + 1.5) mv.addScaledVector(dir, 1);
       else if (dist < ideal - 2.5) mv.addScaledVector(dir, -0.9);
       var side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(e.strafe * 0.75);
@@ -1134,8 +1390,8 @@ function __nbGame() {
       if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(e.speed * dt);
 
       pos.x += mv.x; pos.z += mv.z;
-      e.ph += dt * 2.2;
-      pos.y = 2.1 + Math.sin(e.ph) * 0.45 + (e.brute ? 0.5 : 0);
+      e.ph += dt * (e.type === "dart" ? 3.6 : e.type === "boss" ? 1.1 : 2.2);
+      pos.y = 2.1 + Math.sin(e.ph) * (e.type === "dart" ? 0.75 : 0.45) + (e.brute ? 0.5 : 0);
       resolve(pos, 0.7 * e.scale);
 
       e.ring.rotation.z += dt * 1.7;
@@ -1143,20 +1399,35 @@ function __nbGame() {
       e.body.rotation.x += dt * 0.6;
       e.body.rotation.y += dt * 0.9;
 
+      if (e.shield && e.shield.hp > 0) {
+        if (e.shield.rim) e.shield.rim.rotation.z += dt * 1.4;
+        if (e.shield.sphere) {
+          e.shield.mesh.material.opacity = 0.13 + Math.sin(e.ph * 1.6) * 0.06;
+          e.shield.mesh.rotation.y += dt * 0.5;
+        }
+      }
+
       var look = new THREE.Vector3(p.x, p.y - 0.3, p.z).sub(pos);
       e.grp.lookAt(pos.clone().add(look));
 
       e.hitFlash = Math.max(0, e.hitFlash - dt);
       var f = e.hitFlash > 0 ? 1 : 0;
-      e.core.scale.setScalar(1 + f * 0.5);
+      for (var ci = 0; ci < e.cores.length; ci++) e.cores[ci].scale.setScalar(1 + f * 0.5);
       e.flashT = Math.max(0, e.flashT - dt);
       e.flash.material.opacity = e.flashT > 0 ? e.flashT / 0.09 : 0;
 
       e.fire -= dt;
       if (e.fire <= 0 && dist < e.range + 8) {
-        e.fire = (e.brute ? 1.7 : 1.15) + Math.random() * 1.0 - Math.min(wave, 10) * 0.035;
-        enemyShoot(e);
+        var cd = e.fireRate * (0.85 + Math.random() * 0.3) - Math.min(wave, 10) * 0.035;
+        if (e.type === "dart") { e.burst = 3; e.burstT = 0; e.fire = cd * 2.2; }
+        else if (e.type === "boss") { enemyShoot(e, 0.22, 5); e.fire = cd; }
+        else { enemyShoot(e); e.fire = cd; }
       }
+      if (e.burst > 0) {
+        e.burstT -= dt;
+        if (e.burstT <= 0) { enemyShoot(e); e.burst--; e.burstT = 0.11; }
+      }
+      if (e.type === "boss") updateBossBar();
     }
   }
 
@@ -1286,6 +1557,109 @@ function __nbGame() {
     var g = ac.createGain(); g.gain.value = gain || 0.2;
     src.connect(f); f.connect(g); g.connect(master);
     src.start();
+  }
+
+  var mus = { on: false, bus: null, timer: null, next: 0, step: 0, duck: 1 };
+  var MUS_ROOTS = [55, 43.65, 65.41, 49];
+  var MUS_CHORD = [[0, 3, 7], [0, 4, 7], [0, 4, 7], [0, 4, 7]];
+
+  function initMusic() {
+    if (!ac || mus.bus) return;
+    try {
+      mus.bus = ac.createGain();
+      mus.bus.gain.value = 0;
+      mus.bus.connect(master);
+    } catch (err) { mus.bus = null; }
+  }
+
+  function musicSync() {
+    if (!ac) return;
+    var want = !!settings.music && inProgress;
+    if (want && !mus.bus) initMusic();
+    if (want === mus.on) { if (want) musicDuck(!running); return; }
+    mus.on = want;
+    if (want) {
+      if (!mus.bus) { mus.on = false; return; }
+      mus.step = 0;
+      mus.next = ac.currentTime + 0.08;
+      mus.timer = setInterval(musicTick, 55);
+      musicDuck(!running);
+    } else {
+      clearInterval(mus.timer); mus.timer = null;
+      if (mus.bus) mus.bus.gain.setTargetAtTime(0, ac.currentTime, 0.25);
+    }
+  }
+
+  function musicDuck(ducked) {
+    mus.duck = ducked ? 0 : 1;
+    if (mus.bus && ac) mus.bus.gain.setTargetAtTime(ducked ? 0.09 : 0.42, ac.currentTime, 0.25);
+  }
+
+  function musicTick() {
+    if (!ac || !mus.on || ac.state !== "running") return;
+    var bpm = 96 + Math.min(wave, 14) * 2.4 + (boss ? 26 : 0);
+    var spb = 60 / bpm / 4;
+    var horizon = ac.currentTime + 0.4;
+    var guard = 0;
+    while (mus.next < horizon && guard++ < 96) {
+      musStep(mus.step, mus.next, spb);
+      mus.next += spb;
+      mus.step = (mus.step + 1) % 64;
+    }
+  }
+
+  function musStep(step, t, spb) {
+    var bar = Math.floor(step / 16), s = step % 16;
+    var root = MUS_ROOTS[bar], chord = MUS_CHORD[bar], tense = !!boss;
+    if (s % 2 === 0) {
+      var oct = (s === 6 || s === 14) ? 1.5 : 1;
+      musVoice(root * oct, t, spb * 1.6, "sawtooth", 0.13, 400);
+    }
+    if (s % 4 === 2) {
+      musVoice(root * 4 * Math.pow(2, chord[(step >> 1) % 3] / 12), t, spb * 2.6, "triangle", 0.035, 1500);
+    }
+    if (tense && s % 4 === 3) {
+      musVoice(root * 4 * Math.pow(2, (chord[1] + 1) / 12), t, spb * 0.9, "square", 0.03, 2200);
+    }
+    if (s === 0 || s === 6 || s === 8 || s === 14) musKick(t);
+    if (s % 2 === 1) musHat(t, s % 4 === 3 ? 0.03 : 0.016);
+  }
+
+  function musVoice(f, t, dur, type, g, cut) {
+    if (!mus.bus) return;
+    var o = ac.createOscillator(), gn = ac.createGain(), fl = ac.createBiquadFilter();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    fl.type = "lowpass"; fl.frequency.setValueAtTime(cut, t); fl.Q.value = 6;
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(g, t + 0.015);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(gn); gn.connect(mus.bus);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+
+  function musKick(t) {
+    if (!mus.bus) return;
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(44, t + 0.14);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.connect(g); g.connect(mus.bus);
+    o.start(t); o.stop(t + 0.22);
+  }
+
+  function musHat(t, amp) {
+    if (!mus.bus) return;
+    var n = Math.floor(ac.sampleRate * 0.045);
+    var buf = ac.createBuffer(1, n, ac.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var s = ac.createBufferSource(); s.buffer = buf;
+    var f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 6500;
+    var g = ac.createGain(); g.gain.value = amp;
+    s.connect(f); f.connect(g); g.connect(mus.bus);
+    s.start(t);
   }
 
   function mulberry(a) {
