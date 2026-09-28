@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="description" content="Neon Breach - a fast 3D arena shooter. Survive escalating waves of hostile drones." />
 <title>NEON BREACH // 3D Arena Shooter</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg" />
@@ -81,6 +81,36 @@
             color:#ffd166; text-shadow:0 0 10px rgba(0,0,0,.9); white-space:nowrap; }
   #padBadge { position:absolute; left:50%; bottom:22px; transform:translateX(-50%); font-size:10px;
               letter-spacing:2px; color:#4dffb0; opacity:0; transition:opacity .3s; }
+
+  #touch { position:fixed; inset:0; z-index:12; display:none; touch-action:none; pointer-events:auto;
+           -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .tbtn { position:absolute; display:flex; align-items:center; justify-content:center;
+          border:1px solid rgba(80,220,255,.35); border-radius:14px; color:#bfefff;
+          background:rgba(10,25,38,.42); backdrop-filter:blur(2px);
+          font-size:13px; letter-spacing:2px; font-weight:600; text-align:center;
+          touch-action:none; box-shadow:0 0 12px rgba(30,150,200,.15) inset; }
+  .tbtn.pressed, .tbtn:active { background:rgba(45,170,220,.5); color:#fff; border-color:#7dfcff; }
+  #stickZone { position:absolute; left:26px; bottom:118px; width:150px; height:150px;
+               border-radius:50%; border:1px solid rgba(80,220,255,.22); background:rgba(10,25,38,.25); }
+  #stickKnob { position:absolute; left:50%; top:50%; width:66px; height:66px; margin:-33px 0 0 -33px;
+               border-radius:50%; background:radial-gradient(circle closest-side, rgba(80,220,255,.85), rgba(40,120,160,.4) 70%, transparent);
+               box-shadow:0 0 16px rgba(60,200,255,.5); }
+  #fireBtn { right:22px; bottom:120px; width:96px; height:96px; border-radius:50%; font-size:15px;
+             border-color:rgba(255,90,120,.45); color:#ffc9d4; background:rgba(70,14,26,.4); }
+  #aimBtn { right:132px; bottom:34px; width:74px; height:74px; border-radius:50%; font-size:11px; }
+  #sprintBtn { right:34px; bottom:230px; width:46px; height:46px; border-radius:50%; font-size:10px;
+               border-color:rgba(120,255,180,.35); color:#c9ffe0; }
+  #jumpBtn { right:152px; bottom:220px; width:58px; height:58px; border-radius:50%; font-size:11px; }
+  #reloadBtn { left:196px; bottom:34px; width:58px; height:52px; border-radius:12px; font-size:10px; }
+  @media (orientation: landscape) and (max-height: 430px) {
+    #stickZone { left:14px; bottom:74px; width:116px; height:116px; }
+    #stickKnob { width:50px; height:50px; margin:-25px 0 0 -25px; }
+    #fireBtn { right:14px; bottom:72px; width:78px; height:78px; }
+    #aimBtn { right:100px; bottom:18px; width:58px; height:58px; }
+    #sprintBtn { right:20px; bottom:168px; width:38px; height:38px; }
+    #jumpBtn { right:116px; bottom:160px; width:46px; height:46px; }
+    #reloadBtn { left:142px; bottom:18px; width:48px; height:44px; }
+  }
 
   #overlay { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
              background:radial-gradient(ellipse at 50% 40%, #0b1b2a 0%, #04060c 70%); }
@@ -173,6 +203,14 @@
     <div id="bossShield"><div id="bossShieldFill"></div></div>
   </div>
   <div id="padBadge">GAMEPAD CONNECTED</div>
+  <div id="touch" aria-hidden="true">
+    <div id="stickZone"><div id="stickKnob"></div></div>
+    <div id="fireBtn" class="tbtn">FIRE</div>
+    <div id="aimBtn" class="tbtn">AIM</div>
+    <div id="sprintBtn" class="tbtn">SPRINT</div>
+    <div id="jumpBtn" class="tbtn">JUMP</div>
+    <div id="reloadBtn" class="tbtn">RELOAD</div>
+  </div>
   <div id="banner"><div class="big" id="bBig"></div><div class="sub" id="bSub"></div></div>
 </div>
 
@@ -244,6 +282,9 @@ function __nbGame() {
   var reloading = false, reloadT = 0, fireCd = 0, recoil = 0, spread = 0, zoom = false;
   var streak = 0, streakT = 0, lastHitT = 0, kills = 0, shots = 0, hits = 0;
   var running = false, gameOver = false, inProgress = false, pending = 0, yaw = 0, pitch = 0;
+  var touchMode = false, padHide = null;
+  var inp = { mx: 0, mz: 0, lookX: 0, lookY: 0, fire: false, zoom: false, jump: false, sprint: false, reload: false };
+  var touch = { stickId: null, stickT: null, stickLast: null, lookId: null, lookLast: null };
   var velY = 0, onGround = true, bob = 0, sprint = 1.9, walk = 4.4;
   var keys = {}, euler = new THREE.Euler(0, 0, 0, "YXZ");
   var ac = null, master = null;
@@ -292,7 +333,10 @@ function __nbGame() {
     bBig: el("bBig"), bSub: el("bSub"), hit: el("hitmark"),
     reloadWrap: el("reloadWrap"), reloadFill: el("reloadFill"),
     bossWrap: el("bossWrap"), bossFill: el("bossFill"), bossShieldFill: el("bossShieldFill"),
-    bossName: el("bossName"), modTag: el("modTag"), padBadge: el("padBadge")
+    bossName: el("bossName"), modTag: el("modTag"), padBadge: el("padBadge"),
+    touch: el("touch"), stickKnob: el("stickKnob"), stickZone: el("stickZone"),
+    fireBtn: el("fireBtn"), aimBtn: el("aimBtn"), sprintBtn: el("sprintBtn"),
+    jumpBtn: el("jumpBtn"), reloadBtn: el("reloadBtn")
   };
 
   function init() {
@@ -324,6 +368,7 @@ function __nbGame() {
     buildGun();
     buildBoomLights();
     bindEvents();
+    wireTouch();
     wireSettings();
     addEventListener("resize", onResize);
     el("sBest").textContent = best;
@@ -605,6 +650,7 @@ function __nbGame() {
     });
 
     renderer.domElement.addEventListener("click", function () {
+      if (touchMode) return;
       if (running && document.pointerLockElement !== renderer.domElement) lock();
     });
     el("go").addEventListener("click", function () { start(); });
@@ -623,6 +669,7 @@ function __nbGame() {
       if (running) el("tip").textContent = "Pointer lock was blocked — click the arena to capture the mouse, or press P to pause.";
     });
     document.addEventListener("mousemove", function (e) {
+      if (touchMode) return;
       if (document.pointerLockElement !== renderer.domElement) return;
       var sens = (zoom ? 0.0011 : 0.0022) * (settings.sens / 100);
       yaw -= e.movementX * sens;
@@ -630,15 +677,177 @@ function __nbGame() {
       pitch = Math.max(-1.52, Math.min(1.52, pitch));
     });
     document.addEventListener("mousedown", function (e) {
+      if (touchMode) return;
       if (!running) return;
       if (e.button === 0) { keys.Mouse0 = true; shoot(); }
       if (e.button === 2) { zoom = true; }
     });
     document.addEventListener("mouseup", function (e) {
+      if (touchMode) return;
       if (e.button === 0) keys.Mouse0 = false;
       if (e.button === 2) zoom = false;
     });
     document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+
+  function showTouchUI() {
+    if (touchMode) return;
+    touchMode = true;
+    ui.touch.style.display = "block";
+  }
+
+  function stickRect() {
+    var r = ui.stickZone.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2 - 10 };
+  }
+
+  function touchStart(ev) {
+    showTouchUI();
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+      var t = ev.changedTouches[i];
+      var id = t.identifier;
+      if (touch.stickId === null && touch.stickLast === null &&
+          Math.abs(t.clientX - stickRect().cx) < stickRect().r + 30 &&
+          Math.abs(t.clientY - stickRect().cy) < stickRect().r + 30) {
+        touch.stickId = id; touch.stickLast = { x: t.clientX, y: t.clientY };
+        setStickKnob(t.clientX, t.clientY);
+      } else if (inTouchBtn(t)) {
+        touch.stickLast = null;
+        var btn = touchBtn(t);
+        if (btn === "fireBtn" || btn === "aimBtn" || btn === "sprintBtn") inp[btn === "fireBtn" ? "fire" : btn === "aimBtn" ? "zoom" : "sprint"] = true;
+        else if (btn === "jumpBtn") inp.jump = true;
+        else if (btn === "reloadBtn") inp.reload = true;
+        ui[btn].className = "tbtn pressed";
+      } else if (touch.lookId === null) {
+        touch.lookId = id; touch.lookLast = { x: t.clientX, y: t.clientY };
+      }
+    }
+    if (running) ev.preventDefault();
+    ev.stopPropagation();
+  }
+
+  function touchMove(ev) {
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+      var t = ev.changedTouches[i], id = t.identifier;
+      if (id === touch.stickId) {
+        var rc = stickRect();
+        var dx = t.clientX - rc.cx, dy = t.clientY - rc.cy;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d > rc.r) { dx = dx / d * rc.r; dy = dy / d * rc.r; }
+        inp.mx = dx / rc.r;
+        inp.mz = -dy / rc.r;
+        ui.stickKnob.style.left = (50 + dx / rc.r * 50) + "%";
+        ui.stickKnob.style.top = (50 + dy / rc.r * 50) + "%";
+      } else if (id === touch.lookId && touch.lookLast) {
+        inp.lookX += t.clientX - touch.lookLast.x;
+        inp.lookY += t.clientY - touch.lookLast.y;
+        touch.lookLast = { x: t.clientX, y: t.clientY };
+      }
+    }
+    if (running) ev.preventDefault();
+    ev.stopPropagation();
+  }
+
+  function touchEnd(ev) {
+    for (var i = 0; i < ev.changedTouches.length; i++) {
+      var t = ev.changedTouches[i], id = t.identifier;
+      if (id === touch.stickId) {
+        touch.stickId = null; touch.stickLast = null;
+        inp.mx = 0; inp.mz = 0;
+        ui.stickKnob.style.left = "50%"; ui.stickKnob.style.top = "50%";
+      }
+      if (id === touch.lookId) { touch.lookId = null; touch.lookLast = null; }
+      if (inTouchBtn(t)) {
+        var btn = touchBtn(t);
+        if (btn === "fireBtn") inp.fire = false;
+        else if (btn === "aimBtn") inp.zoom = false;
+        else if (btn === "sprintBtn") inp.sprint = false;
+        if (ui[btn]) ui[btn].className = "tbtn";
+      }
+    }
+    if (running) ev.preventDefault();
+    ev.stopPropagation();
+  }
+
+  function inTouchBtn(t) {
+    var btn = touchBtn(t);
+    return btn !== null;
+  }
+
+  function touchBtn(t) {
+    var elm = document.elementFromPoint(t.clientX, t.clientY);
+    while (elm && elm.id !== "touch" && elm !== document.body) {
+      if (elm.id === "fireBtn" || elm.id === "aimBtn" || elm.id === "sprintBtn" ||
+          elm.id === "jumpBtn" || elm.id === "reloadBtn") return elm.id;
+      elm = elm.parentNode;
+    }
+    return null;
+  }
+
+  function setStickKnob(x, y) {
+    var rc = stickRect();
+    var dx = x - rc.cx, dy = y - rc.cy;
+    ui.stickKnob.style.left = (50 + dx / rc.r * 50) + "%";
+    ui.stickKnob.style.top = (50 + dy / rc.r * 50) + "%";
+  }
+
+  function wireTouch() {
+    document.addEventListener("touchstart", function touchIntro() {
+      if (touchMode) return;
+      touchMode = true;
+      ui.touch.style.display = "block";
+    }, { passive: true, once: true });
+    if (window.matchMedia && matchMedia("(pointer: coarse)").matches) showTouchUI();
+    ui.touch.addEventListener("touchstart", touchStart, { passive: false });
+    ui.touch.addEventListener("touchmove", touchMove, { passive: false });
+    ui.touch.addEventListener("touchend", touchEnd, { passive: false });
+    ui.touch.addEventListener("touchcancel", function (ev) {
+      var ids = [];
+      for (var i = 0; i < ev.changedTouches.length; i++) ids.push(ev.changedTouches[i].identifier);
+      if (ids.indexOf(touch.stickId) >= 0) {
+        touch.stickId = null; touch.stickLast = null; inp.mx = 0; inp.mz = 0;
+        ui.stickKnob.style.left = "50%"; ui.stickKnob.style.top = "50%";
+      }
+      if (ids.indexOf(touch.lookId) >= 0) { touch.lookId = null; touch.lookLast = null; }
+      inp.fire = inp.zoom = inp.sprint = false;
+      var btns = ["fireBtn", "aimBtn", "sprintBtn", "jumpBtn", "reloadBtn"];
+      for (var j = 0; j < btns.length; j++) if (ui[btns[j]]) ui[btns[j]].className = "tbtn";
+      ev.preventDefault();
+    });
+  }
+
+  function pollPad(dt) {
+    try {
+      var gs = navigator.getGamepads ? navigator.getGamepads() : null;
+      if (!gs) return;
+      var g = null;
+      for (var i = 0; i < gs.length; i++) {
+        if (gs[i] && gs[i].connected) { g = gs[i]; break; }
+      }
+      if (!g) return;
+      ui.padBadge.style.opacity = 1;
+      clearTimeout(padHide);
+      padHide = setTimeout(function () { ui.padBadge.style.opacity = 0; }, 2500);
+
+      if (g.buttons[9] && g.buttons[9].pressed && !pollPad._paused) {
+        togglePause();
+      }
+      pollPad._paused = g.buttons[9] && g.buttons[9].pressed;
+
+      if (g.buttons[2] && g.buttons[2].pressed && !pollPad._reload) inp.reload = true;
+      pollPad._reload = g.buttons[2] && g.buttons[2].pressed;
+
+      if (!running || gameOver || !inProgress) return;
+      function dz(v) { return Math.abs(v) < 0.12 ? 0 : (v > 0 ? v - 0.12 : v + 0.12) / 0.88; }
+      inp.mx = dz(g.axes[0] || 0);
+      inp.mz = -dz(g.axes[1] || 0);
+      inp.lookX += (g.axes[2] || 0) * 380 * dt;
+      inp.lookY += (g.axes[3] || 0) * 380 * dt;
+      inp.fire = inp.fire || (g.buttons[7] && g.buttons[7].pressed);
+      inp.zoom = inp.zoom || (g.buttons[6] && g.buttons[6].pressed);
+      inp.sprint = inp.sprint || (g.buttons[4] && g.buttons[4].pressed);
+      if (g.buttons[0] && g.buttons[0].pressed) inp.jump = true;
+    } catch (err) {}
   }
 
   function onResize() {
@@ -1280,22 +1489,37 @@ function __nbGame() {
 
   function updatePlayer(dt) {
     camera.position.sub(shakeOff); shakeOff.set(0, 0, 0);
+
+    if (inp.lookX || inp.lookY) {
+      var lsen = (zoom || inp.zoom ? 0.0016 : 0.0022) * (settings.sens / 100);
+      yaw -= inp.lookX * lsen;
+      pitch -= inp.lookY * lsen;
+      pitch = Math.max(-1.52, Math.min(1.52, pitch));
+      inp.lookX = 0; inp.lookY = 0;
+    }
+
+    if (inp.reload) { inp.reload = false; if (!reloading) startReload(); }
+
+    var iz = zoom || inp.zoom;
     var move = new THREE.Vector3();
-    var fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
-    var strafe = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+    var fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + inp.mz;
+    var strafe = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + inp.mx;
     var moving = fwd !== 0 || strafe !== 0;
-    var spd = zoom ? walk * 0.55 : (keys.ShiftLeft || keys.ShiftRight ? sprint : walk);
+    var sprinting = (keys.ShiftLeft || keys.ShiftRight) || inp.sprint;
+    var spd = iz ? walk * 0.55 : (sprinting ? sprint : walk);
 
     if (moving) {
       var sin = Math.sin(yaw), cos = Math.cos(yaw);
       move.x = -sin * fwd + cos * strafe;
       move.z = -cos * fwd - sin * strafe;
       move.normalize().multiplyScalar(spd);
-      bob += dt * (keys.ShiftLeft ? 15 : 11);
+      bob += dt * (sprinting ? 15 : 11);
     }
     camera.position.addScaledVector(move, dt);
 
-    if (keys.Space && onGround) { velY = 6.4; onGround = false; }
+    if ((keys.Space || inp.jump) && onGround) {
+      inp.jump = false; velY = 6.4; onGround = false;
+    }
     velY -= 19 * dt;
     camera.position.y += velY * dt;
     if (camera.position.y <= 1.68) { camera.position.y = 1.68; velY = 0; onGround = true; }
@@ -1310,20 +1534,20 @@ function __nbGame() {
       camera.position.add(shakeOff);
     }
 
-    var bobY = moving ? Math.sin(bob) * (zoom ? 0.012 : 0.032) : 0;
-    var bobX = moving ? Math.cos(bob * 0.5) * (zoom ? 0.008 : 0.022) : 0;
+    var bobY = moving ? Math.sin(bob) * (iz ? 0.012 : 0.032) : 0;
+    var bobX = moving ? Math.cos(bob * 0.5) * (iz ? 0.008 : 0.022) : 0;
     camera.rotation.set(pitch, yaw, 0, "YXZ");
 
     var base = settings.fov;
-    var targetFov = zoom ? base * 0.67
-      : (((keys.ShiftLeft || keys.ShiftRight) && moving) ? base + 6 : base);
+    var targetFov = iz ? base * 0.67
+      : ((sprinting && moving) ? base + 6 : base);
     camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
     camera.updateProjectionMatrix();
 
     gun.position.set(
-      (zoom ? 0 : 0.19) + bobX,
-      (zoom ? -0.115 : -0.17) + bobY,
-      (zoom ? -0.24 : -0.34) + recoil * 0.16
+      (iz ? 0 : 0.19) + bobX,
+      (iz ? -0.115 : -0.17) + bobY,
+      (iz ? -0.24 : -0.34) + recoil * 0.16
     );
     gun.rotation.set(recoil * 1.5, 0, 0);
 
@@ -1333,7 +1557,7 @@ function __nbGame() {
     spread = Math.max(0, spread - dt * 0.09);
     fireCd -= dt;
 
-    if (keys.Mouse0) shoot();
+    if (keys.Mouse0 || inp.fire) shoot();
 
     if (reloading) {
       reloadT += dt;
@@ -1514,6 +1738,7 @@ function __nbGame() {
   function loop() {
     requestAnimationFrame(loop);
     var dt = Math.min(clock.getDelta(), 0.05);
+    pollPad(dt);
     if (running) {
       updatePlayer(dt);
       updateEnemies(dt);

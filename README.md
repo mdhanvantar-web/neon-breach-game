@@ -35,9 +35,13 @@ Everything runs locally, including the 3D engine — it plays offline.
 | `R` | Reload |
 | `Esc` or `P` | Pause |
 | Gear button | Settings: sensitivity, FOV, volume, graphics, music, screen shake |
+| Virtual stick + drag | Touch: move / look |
+| FIRE · AIM · SPRINT · JUMP · RELOAD buttons | Touch: fire, focus aim, sprint, jump, reload |
+| Gamepad | Left stick move, right stick look, `RT` fire, `LT` focus aim, `LB` sprint, `A` jump, `X` reload, `Start` pause |
 
-**Desktop only.** The game requires a mouse and keyboard (pointer lock), so it
-does not work on phones or tablets.
+**Desktop only via mouse and keyboard (pointer lock), but fully playable on touch
+phones and tablets, and with a USB or Bluetooth gamepad.** The touch overlay appears
+automatically on first touch; a connected gamepad shows the `GAMEPAD CONNECTED` badge.
 
 ## Hostiles
 
