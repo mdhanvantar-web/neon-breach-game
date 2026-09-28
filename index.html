@@ -87,9 +87,48 @@
   #stats .s div:first-child { font-size:10px; letter-spacing:3px; color:#5fa8c8; }
   #stats .s div:last-child { font-size:26px; font-weight:700; color:#7dfcff; }
   #tip { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); font-size:11px; color:#3f6b7d; z-index:5; }
+  #card { max-height:92vh; overflow-y:auto; }
+
+  /* boot */
+  #boot { position:fixed; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center;
+          justify-content:center; gap:16px; background:radial-gradient(ellipse at 50% 45%, #0b1b2a 0%, #04060c 70%); }
+  #boot img { width:92px; height:92px; border-radius:22px; }
+  #bootTitle { font-size:12px; letter-spacing:8px; color:#7dfcff; }
+  #bootBar { width:min(300px,68vw); height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; }
+  #bootFill { height:100%; width:0%; border-radius:2px; background:linear-gradient(90deg,#7dfcff,#4dffb0);
+              box-shadow:0 0 12px #21e6ff; transition:width .12s linear; }
+  #bootTxt { font-size:10px; letter-spacing:3px; color:#4d7d90; }
+  #boot.off { opacity:0; pointer-events:none; transition:opacity .35s; }
+
+  /* settings */
+  #setBar { display:flex; align-items:center; gap:12px; margin-top:18px; }
+  #setHint { font-size:11px; color:#4d7d90; letter-spacing:1px; }
+  .btn2 { font-size:11px; letter-spacing:2px; color:#7dfcff; background:rgba(125,252,255,.08);
+          border:1px solid rgba(125,252,255,.3); padding:7px 13px; border-radius:6px; cursor:pointer; font-family:inherit; }
+  .btn2:hover { background:rgba(125,252,255,.2); }
+  #set { display:none; margin-top:14px; border-top:1px solid rgba(90,220,255,.18); padding-top:14px; }
+  #set.on { display:block; }
+  #set .row { display:flex; align-items:center; gap:12px; margin:8px 0; font-size:13px; color:#b9d9e8; }
+  #set .row > label { flex:0 0 118px; color:#9fc4d6; letter-spacing:1px; }
+  #set .row > .num { flex:0 0 44px; text-align:right; color:#7dfcff; font-variant-numeric:tabular-nums; font-size:12px; }
+  #set input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:3px; border-radius:2px;
+                           background:rgba(255,255,255,.14); outline:none; }
+  #set input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+                           background:#7dfcff; box-shadow:0 0 8px #21e6ff; cursor:pointer; }
+  #set input[type=range]::-moz-range-thumb { width:14px; height:14px; border:0; border-radius:50%; background:#7dfcff; cursor:pointer; }
+  #set input[type=checkbox] { width:16px; height:16px; accent-color:#21e6ff; cursor:pointer; }
+  #set select { background:rgba(6,16,26,.9); color:#7dfcff; border:1px solid rgba(90,220,255,.3);
+                border-radius:6px; padding:5px 7px; font-family:inherit; font-size:12px; cursor:pointer; }
 </style>
 </head>
 <body>
+
+<div id="boot">
+  <img src="logo.svg" width="92" height="92" alt="" style="border-radius:22px" />
+  <div id="bootTitle">NEON BREACH</div>
+  <div id="bootBar"><div id="bootFill"></div></div>
+  <div id="bootTxt">LOADING ENGINE</div>
+</div>
 
 <div id="hud">
   <div id="crosshair"><i class="v t"></i><i class="v b"></i><i class="h l"></i><i class="h r"></i><i class="dot"></i></div>
@@ -141,17 +180,31 @@
       <div class="s"><div>BEST</div><div id="sBest">0</div></div>
     </div>
     <button id="go">CLICK TO DEPLOY</button>
+    <div id="setBar">
+      <button class="btn2" id="setToggle">SETTINGS</button>
+      <span id="setHint">controls, audio and graphics</span>
+    </div>
+    <div id="set">
+      <div class="row"><label for="sSens">Sensitivity</label><input id="sSens" type="range" min="20" max="300" step="5" value="100"><span class="num" id="sSensV">1.00</span></div>
+      <div class="row"><label for="sFov">Field of view</label><input id="sFov" type="range" min="60" max="100" step="1" value="78"><span class="num" id="sFovV">78</span></div>
+      <div class="row"><label for="sVol">Volume</label><input id="sVol" type="range" min="0" max="100" step="1" value="55"><span class="num" id="sVolV">55</span></div>
+      <div class="row"><label for="sQual">Graphics</label><select id="sQual"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option></select><span class="num" id="sQualV"></span></div>
+      <div class="row"><label for="sMusic">Music</label><input id="sMusic" type="checkbox" checked></div>
+      <div class="row"><label for="sShake">Screen shake</label><input id="sShake" type="checkbox" checked></div>
+    </div>
   </div>
 </div>
 
 <div id="tip">Requires a mouse + keyboard. Best played fullscreen. Press ESC to pause.</div>
 
-<script src="vendor/three.min.js"></script>
 <script>
-(function () {
+function __nbGame() {
   if (typeof THREE === "undefined") {
+    var eb = document.getElementById("boot");
+    if (eb) eb.style.display = "none";
     document.getElementById("body").innerHTML =
-      "<p style='color:#ff6b6b'>Could not load the 3D engine (three.js from CDN). Check your internet connection and reload.</p>";
+      "<p style='color:#ff6b6b'>Could not load the 3D engine (vendor/three.min.js). Reload the page to try again.</p>";
+    document.getElementById("go").style.display = "none";
     return;
   }
 
@@ -173,6 +226,42 @@
   var keys = {}, euler = new THREE.Euler(0, 0, 0, "YXZ");
   var ac = null, master = null;
 
+  var DEFAULTS = { sens: 100, fov: 78, vol: 55, music: 1, quality: "auto", shake: 1 };
+  var settings = {};
+  function loadSettings() {
+    var k;
+    for (k in DEFAULTS) settings[k] = DEFAULTS[k];
+    try {
+      var raw = localStorage.getItem("neonSettings");
+      if (raw) { var s = JSON.parse(raw); for (k in DEFAULTS) if (k in s) settings[k] = s[k]; }
+    } catch (err) {}
+  }
+  function saveSettings() { try { localStorage.setItem("neonSettings", JSON.stringify(settings)); } catch (err) {} }
+  function applyVolume() { if (master) master.gain.value = Math.max(0, Math.min(100, settings.vol)) / 100; }
+
+  var shake = 0, shakeOff = new THREE.Vector3();
+  var QPR = [0.75, 1.15, 2.0], QNAME = ["LOW", "MEDIUM", "HIGH"];
+  var perf = { acc: 0, frames: 0, level: 2, cooldown: 0, fps: 0 };
+
+  function applyQuality(l, silent) {
+    perf.level = l;
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, QPR[l]));
+    renderer.setSize(innerWidth, innerHeight);
+    if (!silent && inProgress) feedMsg("GRAPHICS → " + QNAME[l]);
+  }
+
+  function monitorPerf(dt) {
+    if (settings.quality !== "auto") return;
+    perf.acc += dt; perf.frames++;
+    if (perf.cooldown > 0) perf.cooldown -= dt;
+    if (perf.acc < 1) return;
+    perf.fps = perf.frames / perf.acc;
+    perf.acc = 0; perf.frames = 0;
+    if (perf.cooldown > 0) return;
+    if (perf.fps < 42 && perf.level > 0) { applyQuality(perf.level - 1); perf.cooldown = 5; }
+    else if (perf.fps > 57 && perf.level < 2) { applyQuality(perf.level + 1); perf.cooldown = 12; }
+  }
+
   var el = function (id) { return document.getElementById(id); };
   var ui = {
     hp: el("hp"), hpFill: el("hpFill"), ammo: el("ammo"), ammoFill: el("ammoFill"),
@@ -183,18 +272,19 @@
   };
 
   function init() {
+    loadSettings();
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070c18);
     scene.fog = new THREE.Fog(0x070c18, 40, 135);
 
-    camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 400);
+    camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.05, 400);
     euler.set(0, 0, 0, "YXZ");
     scene.add(camera);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = settings.quality !== "low";
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
     document.body.appendChild(renderer.domElement);
@@ -210,9 +300,48 @@
     buildGun();
     buildBoomLights();
     bindEvents();
+    wireSettings();
     addEventListener("resize", onResize);
     el("sBest").textContent = best;
+    applyQuality(settings.quality === "low" ? 0 : 2, true);
+    el("boot").className = "off";
+    setTimeout(function () { el("boot").style.display = "none"; }, 400);
     loop();
+  }
+
+  function wireSettings() {
+    var sens = el("sSens"), fov = el("sFov"), vol = el("sVol"), qual = el("sQual"),
+      mus = el("sMusic"), shk = el("sShake"), panel = el("set"), tog = el("setToggle");
+
+    function sync() {
+      el("sSensV").textContent = (settings.sens / 100).toFixed(2);
+      el("sFovV").textContent = settings.fov;
+      el("sVolV").textContent = settings.vol;
+      el("sQualV").textContent = settings.quality === "auto" && perf.level < 2
+        ? QNAME[perf.level] + "*" : "";
+      sens.value = settings.sens; fov.value = settings.fov; vol.value = settings.vol;
+      qual.value = settings.quality; mus.checked = !!settings.music; shk.checked = !!settings.shake;
+    }
+    function changed() { saveSettings(); sync(); }
+
+    sens.addEventListener("input", function () { settings.sens = +sens.value; changed(); });
+    fov.addEventListener("input", function () { settings.fov = +fov.value; changed(); });
+    vol.addEventListener("input", function () { settings.vol = +vol.value; applyVolume(); changed(); });
+    mus.addEventListener("change", function () { settings.music = mus.checked ? 1 : 0; changed(); });
+    shk.addEventListener("change", function () { settings.shake = shk.checked ? 1 : 0; changed(); });
+    qual.addEventListener("change", function () {
+      settings.quality = qual.value;
+      renderer.shadowMap.enabled = settings.quality !== "low";
+      applyQuality(settings.quality === "low" ? 0 : 2);
+      scene.traverse(function (o) { if (o.material) o.material.needsUpdate = true; });
+      changed();
+    });
+    tog.addEventListener("click", function () {
+      var on = panel.className.indexOf("on") < 0;
+      panel.className = on ? "on" : "";
+      tog.textContent = on ? "HIDE SETTINGS" : "SETTINGS";
+    });
+    sync();
   }
 
   function buildLights() {
@@ -439,6 +568,13 @@
     });
     addEventListener("keyup", function (e) { keys[e.code] = false; });
     addEventListener("blur", function () { keys = {}; });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden && running) {
+        keys = {};
+        if (document.pointerLockElement) document.exitPointerLock();
+        showPause();
+      }
+    });
 
     renderer.domElement.addEventListener("click", function () {
       if (running && document.pointerLockElement !== renderer.domElement) lock();
@@ -460,7 +596,7 @@
     });
     document.addEventListener("mousemove", function (e) {
       if (document.pointerLockElement !== renderer.domElement) return;
-      var sens = zoom ? 0.0011 : 0.0022;
+      var sens = (zoom ? 0.0011 : 0.0022) * (settings.sens / 100);
       yaw -= e.movementX * sens;
       pitch -= e.movementY * sens;
       pitch = Math.max(-1.52, Math.min(1.52, pitch));
@@ -513,7 +649,7 @@
       hp = 100; ammo = magSize; reserve = 150; score = 0; wave = 1;
       kills = 0; shots = 0; hits = 0; streak = 0; streakT = 0; lastHitT = 9;
       velY = 0; onGround = true; pending = 0;
-      camera.fov = 78; camera.updateProjectionMatrix();
+      camera.fov = settings.fov; camera.updateProjectionMatrix();
       camera.position.set(SPAWN.x, 1.68, SPAWN.z);
       yaw = 0; pitch = -0.04;
       clearAll();
@@ -646,10 +782,11 @@
       grp: grp, body: body, core: core, ring: ringM, mz: mz, flash: flash, flashT: 0,
       hp: brute ? 220 : 90, max: brute ? 220 : 90, brute: brute, scale: scale,
       speed: (brute ? 2.4 : 3.5) + wave * 0.08,
-      fire: 0.6 + Math.random() * 1.2, dmg: brute ? 17 : 9 + Math.min(wave, 10) * 0.7,
+      fire: 1.4 + Math.random() * 1.6, dmg: brute ? 15 : 6 + Math.min(wave, 10) * 0.8,
       range: brute ? 17 : 13, strafe: Math.random() > 0.5 ? 1 : -1, strafeT: 0,
       ph: Math.random() * 6, hitFlash: 0, dead: false
     });
+    updateHUD();
   }
 
   function spawnPickup(kind) {
@@ -752,6 +889,7 @@
     feedMsg("+" + gain + "  " + (isCore ? "CORE SHOT" : "HOSTILE DOWN") +
       (streak > 1 ? "  x" + (1 + Math.min(streak - 1, 9) * 0.25).toFixed(2) : ""));
     explode(e.grp.position.clone(), e.brute ? 0xff7a3d : 0x2ff0ff, e.brute ? 34 : 20);
+    shake = Math.min(1, shake + (e.brute ? 0.34 : 0.13));
     noise(0.34, 0.3, 700);
     tone(e.brute ? 90 : 150, 0.28, "sawtooth", 0.12);
     scene.remove(e.grp);
@@ -847,6 +985,7 @@
   function damage(n) {
     hp -= n;
     lastHitT = 0;
+    shake = Math.max(shake, 0.55);
     ui.vig.style.transition = "none"; ui.vig.style.opacity = 1;
     setTimeout(function () { ui.vig.style.transition = "opacity .5s"; ui.vig.style.opacity = 0; }, 90);
     noise(0.2, 0.22, 400);
@@ -889,6 +1028,7 @@
   }
 
   function updatePlayer(dt) {
+    camera.position.sub(shakeOff); shakeOff.set(0, 0, 0);
     var move = new THREE.Vector3();
     var fwd = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
     var strafe = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
@@ -911,11 +1051,21 @@
 
     resolve(camera.position, 0.42);
 
+    if (settings.shake && shake > 0) {
+      shake = Math.max(0, shake - dt * 2.6);
+      shakeOff.set((Math.random() - 0.5) * shake * 0.34,
+        (Math.random() - 0.5) * shake * 0.34,
+        (Math.random() - 0.5) * shake * 0.18);
+      camera.position.add(shakeOff);
+    }
+
     var bobY = moving ? Math.sin(bob) * (zoom ? 0.012 : 0.032) : 0;
     var bobX = moving ? Math.cos(bob * 0.5) * (zoom ? 0.008 : 0.022) : 0;
     camera.rotation.set(pitch, yaw, 0, "YXZ");
 
-    var targetFov = zoom ? 52 : (keys.ShiftLeft ? 84 : 78);
+    var base = settings.fov;
+    var targetFov = zoom ? base * 0.67
+      : (((keys.ShiftLeft || keys.ShiftRight) && moving) ? base + 6 : base);
     camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 12);
     camera.updateProjectionMatrix();
 
@@ -1004,7 +1154,7 @@
 
       e.fire -= dt;
       if (e.fire <= 0 && dist < e.range + 8) {
-        e.fire = (e.brute ? 1.5 : 0.95) + Math.random() * 0.9 - Math.min(wave, 10) * 0.035;
+        e.fire = (e.brute ? 1.7 : 1.15) + Math.random() * 1.0 - Math.min(wave, 10) * 0.035;
         enemyShoot(e);
       }
     }
@@ -1099,6 +1249,7 @@
       updateBullets(dt);
     }
     updateFx(dt);
+    monitorPerf(dt);
     renderer.render(scene, camera);
   }
 
@@ -1109,7 +1260,7 @@
     try {
       ac = new AC();
       master = ac.createGain();
-      master.gain.value = 0.55;
+      master.gain.value = Math.max(0, Math.min(100, settings.vol)) / 100;
       master.connect(ac.destination);
     } catch (err) { ac = null; }
   }
@@ -1147,6 +1298,58 @@
   }
 
   init();
+}
+
+(function () {
+  var fill = document.getElementById("bootFill"), txt = document.getElementById("bootTxt");
+  function setBoot(p, label) {
+    fill.style.width = Math.max(0, Math.min(100, Math.round(p * 100))) + "%";
+    if (label) txt.textContent = label;
+  }
+  function launch(then) { setBoot(1, "READY"); then(); }
+  function fail() {
+    setBoot(1, "FAILED");
+    txt.textContent = "FAILED TO LOAD ENGINE — RELOAD";
+    txt.style.color = "#ff6b6b";
+  }
+  function viaScript() {
+    var s = document.createElement("script");
+    s.src = "vendor/three.min.js";
+    s.onload = function () { launch(__nbGame); };
+    s.onerror = fail;
+    document.head.appendChild(s);
+  }
+  function load() {
+    setBoot(0.04, "CONNECTING");
+    var url = "vendor/three.min.js", chunks = [], total = 0;
+    if (window.fetch && window.ReadableStream) {
+      fetch(url).then(function (r) {
+        if (!r.ok || !r.body) throw new Error("no stream");
+        total = parseInt(r.headers.get("content-length") || "0", 10) || 0;
+        var reader = r.body.getReader();
+        (function pump() {
+          return reader.read().then(function (res) {
+            if (res.done) {
+              var blob = new Blob(chunks, { type: "text/javascript" });
+              var s = document.createElement("script");
+              s.src = URL.createObjectURL(blob);
+              s.onload = function () { launch(__nbGame); };
+              s.onerror = viaScript;
+              document.head.appendChild(s);
+              return;
+            }
+            chunks.push(res.value);
+            var got = chunks.reduce(function (n, c) { return n + c.length; }, 0);
+            setBoot(total ? got / total : Math.min(0.94, got / 615000),
+              (got / 1024 | 0) + " KB / 600 KB");
+            return pump();
+          });
+        })();
+      })["catch"](viaScript);
+    } else viaScript();
+  }
+  if (document.readyState === "loading") addEventListener("DOMContentLoaded", load);
+  else load();
 })();
 </script>
 </body>
